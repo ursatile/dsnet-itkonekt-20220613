@@ -11,6 +11,9 @@ namespace Autobarn.Website.Controllers.api {
                 _links = new {
                     vehicles = new {
                         href = "/api/vehicles"
+                    },
+                    models = new {
+                        href = "/api/models"
                     }
                 },
                 message = "Welcome to the Autobarn API",

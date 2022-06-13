@@ -23,7 +23,9 @@ namespace Autobarn.Website.Controllers.api {
         [HttpGet]
         [Produces("application/hal+json")]
         public IActionResult Get(int index = 0, int count = 10) {
-            var items = db.ListVehicles().Skip(index).Take(count);
+            var items = db.ListVehicles()
+                .Skip(index).Take(count)
+                .Select(v => v.ToResource());
             var total = db.CountVehicles();
             var _links = Paginate("/api/vehicles", index, count, total);
             var result = new {
@@ -42,27 +44,8 @@ namespace Autobarn.Website.Controllers.api {
         public IActionResult Get(string id) {
             var vehicle = db.FindVehicle(id);
             if (vehicle == default) return NotFound();
-            var result = vehicle.ToDynamic();
-            result._links = new {
-                self = new {
-                    href = $"/api/vehicles/{vehicle.Registration}"
-                }
-            };
+            var result = vehicle.ToResource();
             return Ok(result);
-        }
-
-        // POST api/vehicles
-        [HttpPost]
-        public IActionResult Post([FromBody] VehicleDto dto) {
-            var vehicleModel = db.FindModel(dto.ModelCode);
-            var vehicle = new Vehicle {
-                Registration = dto.Registration,
-                Color = dto.Color,
-                Year = dto.Year,
-                VehicleModel = vehicleModel
-            };
-            db.CreateVehicle(vehicle);
-            return Ok(dto);
         }
 
         // PUT api/vehicles/ABC123
