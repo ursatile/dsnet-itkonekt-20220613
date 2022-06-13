@@ -1,18 +1,23 @@
-﻿using Autobarn.Data;
+﻿using System;
+using Autobarn.Data;
 using Autobarn.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Autobarn.Messages;
 using Autobarn.Website.Models;
+using EasyNetQ;
 
 namespace Autobarn.Website.Controllers.api {
     [Route("api/[controller]")]
     [ApiController]
     public class ModelsController : ControllerBase {
         private readonly IAutobarnDatabase db;
+        private readonly IPubSub pubSub;
 
-        public ModelsController(IAutobarnDatabase db) {
+        public ModelsController(IAutobarnDatabase db, IPubSub pubSub) {
             this.db = db;
+            this.pubSub = pubSub;
         }
 
         [HttpGet]
@@ -40,7 +45,7 @@ namespace Autobarn.Website.Controllers.api {
 
         // POST api/vehicles
         [HttpPost("{id}")]
-        public IActionResult Post(string id, [FromBody] VehicleDto dto) {
+        public async Task<IActionResult> Post(string id, [FromBody] VehicleDto dto) {
             var existing = db.FindVehicle(dto.Registration);
             if (existing != default) {
                 return Conflict($"Sorry, you can't sell the same car twice and {dto.Registration} is already in our database");
@@ -53,8 +58,21 @@ namespace Autobarn.Website.Controllers.api {
                 VehicleModel = vehicleModel,
             };
             db.CreateVehicle(vehicle);
+            await PublishNewVehicleNotification(vehicle);
             return Created($"/api/vehicles/{vehicle.Registration}",
                 vehicle.ToResource());
+        }
+
+        public async Task PublishNewVehicleNotification(Vehicle vehicle) {
+            var message = new NewVehicleMessage {
+                Registration = vehicle.Registration,
+                Color = vehicle.Color,
+                Year = vehicle.Year,
+                ManufacturerName = vehicle.VehicleModel.Manufacturer.Name,
+                ModelName = vehicle.VehicleModel.Name,
+                ListedAt = DateTimeOffset.UtcNow
+            };
+            await pubSub.PublishAsync(message);
         }
     }
 }
