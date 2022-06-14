@@ -17,7 +17,8 @@ namespace Autobarn.PricingClient {
             var grpc = new Pricer.PricerClient(channel);
             var amqp = configuration.GetConnectionString("AutobarnRabbitMqConnectionString");
             using var bus = RabbitHutch.CreateBus(amqp);
-            await bus.PubSub.SubscribeAsync<NewVehicleMessage>("Autobarn.PricingClient", BuildHandler(grpc));
+            await bus.PubSub.SubscribeAsync<NewVehicleMessage>("Autobarn.PricingClient",
+                BuildHandler(grpc, bus.PubSub));
             Console.WriteLine("Subscribed to NewVehicleMessages");
             //for (var i = 0; i < 2020; i++) {
             //    var pr = new PriceRequest {
@@ -32,7 +33,7 @@ namespace Autobarn.PricingClient {
             Console.ReadLine();
         }
 
-        private static Func<NewVehicleMessage, Task> BuildHandler(Pricer.PricerClient grpc) {
+        private static Func<NewVehicleMessage, Task> BuildHandler(Pricer.PricerClient grpc, IPubSub pubSub) {
             return async nvm => {
                 var pr = new PriceRequest {
                     Color = nvm.Color,
@@ -44,6 +45,10 @@ namespace Autobarn.PricingClient {
                 var reply = await grpc.GetPriceAsync(pr);
                 Console.WriteLine("Sent!");
                 Console.WriteLine($"Price: {reply.Price} {reply.CurrencyCode}");
+                Console.WriteLine("Publishing a NewVehiclePriceMessage...");
+                var newVehiclePriceMessage = nvm.WithPrice(reply.Price, reply.CurrencyCode);
+                await pubSub.PublishAsync(newVehiclePriceMessage);
+                Console.WriteLine("Published!");
             };
         }
 
