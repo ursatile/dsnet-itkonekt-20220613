@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Autobarn.Data;
 using Autobarn.Data.Entities;
 using Autobarn.Website.GraphQL.GraphTypes;
@@ -21,6 +23,18 @@ namespace Autobarn.Website.GraphQL.Queries {
                 new QueryArguments(
                     MakeNonNullStringArgument("registration", "The registration (licence plate) of the Vehicle")),
                 resolve: GetVehicle);
+
+            Field<ListGraphType<VehicleGraphType>>("VehiclesByColor",
+                "Return all vehicles matching a specified color",
+                new QueryArguments(
+                    MakeNonNullStringArgument("color", "The color of cars you want")),
+                resolve: GetVehiclesByColor);
+        }
+
+        private object GetVehiclesByColor(IResolveFieldContext<object> context) {
+            var color = context.GetArgument<string>("color");
+            return db.ListVehicles().Where(
+                v => v.Color.Contains(color, StringComparison.InvariantCultureIgnoreCase));
         }
 
         private QueryArgument MakeNonNullStringArgument(string name, string description) {
